@@ -1,0 +1,34 @@
+// firestore.rules
+// Deploy with: firebase deploy --only firestore:rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Threads ────────────────────────────────────────
+    match /threads/{threadId} {
+      // Anyone can read threads
+      allow read: true;
+
+      // Anyone can create a thread (wallet address as identity)
+      allow create: if request.resource.data.keys().hasAll(['id', 'title', 'category', 'timestamp'])
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() > 0
+                    && request.resource.data.title.size() < 300;
+
+      // Only the creator can update or delete
+      allow update, delete: if request.resource.data.creator == resource.data.creator
+                            || request.auth == null; // relaxed for wallet-auth dApps
+
+      // ── Contributions subcollection ──────────────────
+      match /contributions/{contribId} {
+        allow read:   true;
+        allow create: if request.resource.data.keys().hasAll(['id', 'claim', 'reasoning', 'author', 'timestamp'])
+                      && request.resource.data.claim.size() > 0
+                      && request.resource.data.claim.size() < 1000;
+        allow update, delete: if false; // contributions are immutable
+      }
+    }
+
+    // ── Summaries ──────────────────────────────────────
+    match /summaries/{threadId} {
