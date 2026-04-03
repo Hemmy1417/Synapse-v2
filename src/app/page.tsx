@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/nav/Navbar";
 import { CreateThreadModal } from "@/components/threads/CreateThreadModal";
@@ -19,10 +19,10 @@ function ContributeModal({ thread, onClose }) {
   const [sentiment,  setSentiment]  = useState("neutral");
   const [confidence, setConfidence] = useState(70);
   const [submitted,  setSubmitted]  = useState(false);
-  const [errs,       setErrs]       = useState({});
+  const [errs,       setErrs]       = useState<Record<string, boolean>>({});
 
   const submit = () => {
-    const e = {};
+    const e: Record<string, boolean> = {};
     if (!claim.trim())     e.claim     = true;
     if (!reasoning.trim()) e.reasoning = true;
     if (Object.keys(e).length) { setErrs(e); return; }
@@ -34,14 +34,14 @@ function ContributeModal({ thread, onClose }) {
     setTimeout(() => { onClose(); router.push(`/threads/${thread.id}`); }, 1800);
   };
 
-  const inp = {
+  const inp: CSSProperties = {
     width: "100%", padding: "11px 14px",
     background: "rgba(255,255,255,0.04)",
     border: "1px solid var(--border)", borderRadius: 9,
     color: "var(--text-primary)", fontSize: 15,
     fontFamily: "var(--font-body)", boxSizing: "border-box",
   };
-  const lbl = {
+  const lbl: CSSProperties = {
     display: "block", fontSize: 11, fontWeight: 600,
     color: "var(--text-muted)", textTransform: "uppercase",
     letterSpacing: "0.1em", marginBottom: 7,
@@ -482,8 +482,8 @@ export default function HomePage() {
                       flex: 1, cursor: "pointer",
                       transition: "color 0.15s",
                     }}
-                    onMouseEnter={(e) => { e.target.style.color = "#4D7EFF"; }}
-                    onMouseLeave={(e) => { e.target.style.color = "var(--text-primary)"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "#4D7EFF"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-primary)"; }}
                   >
                     {thread.title}
                   </h2>
