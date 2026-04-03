@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/nav/Navbar";
 import { CreateThreadModal } from "@/components/threads/CreateThreadModal";
+import { EditThreadModal } from "@/components/threads/EditThreadModal";
 import useStore from "@/store/useStore";
 import { CATEGORIES, SENTIMENTS } from "@/lib/constants";
 import { useWallet } from "@/hooks/useWallet";
@@ -18,10 +19,10 @@ function ContributeModal({ thread, onClose }) {
   const [sentiment,  setSentiment]  = useState("neutral");
   const [confidence, setConfidence] = useState(70);
   const [submitted,  setSubmitted]  = useState(false);
-  const [errs,       setErrs]       = useState<Record<string, boolean>>({});
+  const [errs,       setErrs]       = useState({});
 
   const submit = () => {
-    const e: Record<string, boolean> = {};
+    const e = {};
     if (!claim.trim())     e.claim     = true;
     if (!reasoning.trim()) e.reasoning = true;
     if (Object.keys(e).length) { setErrs(e); return; }
@@ -145,17 +146,167 @@ function ContributeModal({ thread, onClose }) {
   );
 }
 
+/* ── Delete confirm modal (reusable for home page cards) ── */
+function DeleteConfirmModal({ thread, onClose, onConfirm }) {
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: "fixed", inset: 0, zIndex: 400,
+        background: "rgba(4,6,12,0.88)", backdropFilter: "blur(6px)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      }}
+    >
+      <div style={{
+        background: "var(--bg-panel)",
+        border: "1px solid rgba(232,88,88,0.3)",
+        borderRadius: 18, padding: "32px 28px", width: 440, maxWidth: "100%",
+        animation: "slideUp 0.2s ease",
+        boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
+      }}>
+        <div style={{ fontSize: 36, marginBottom: 14, textAlign: "center" }}>🗑️</div>
+        <h2 style={{
+          fontFamily: "var(--font-display)", fontSize: 22,
+          color: "var(--text-primary)", marginBottom: 12, textAlign: "center",
+        }}>
+          Delete this thread?
+        </h2>
+        <div style={{
+          padding: "12px 16px", marginBottom: 20,
+          background: "rgba(232,88,88,0.06)",
+          border: "1px solid rgba(232,88,88,0.18)",
+          borderRadius: 10,
+        }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", textAlign: "center" }}>
+            {thread.title}
+          </div>
+        </div>
+        <p style={{
+          fontSize: 14, color: "var(--text-muted)", lineHeight: 1.65,
+          textAlign: "center", marginBottom: 24,
+        }}>
+          This will permanently remove the thread and all contributions.
+          <br />
+          <strong style={{ color: "#E85858" }}>This cannot be undone.</strong>
+        </p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1, padding: "12px 0", background: "transparent",
+              border: "1px solid var(--border)", borderRadius: 10,
+              color: "var(--text-muted)", fontSize: 14,
+              fontFamily: "var(--font-body)", cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{
+              flex: 1, padding: "12px 0", background: "#E85858",
+              border: "none", borderRadius: 10, color: "#fff",
+              fontSize: 14, fontWeight: 700,
+              fontFamily: "var(--font-body)", cursor: "pointer",
+              transition: "opacity 0.15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+          >
+            Yes, delete it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Card options menu ──────────────────────────────── */
+function CardMenu({ thread, onEdit, onDelete }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: 30, height: 30, borderRadius: 7, padding: 0,
+          background: open ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)",
+          border: "1px solid var(--border)",
+          color: "var(--text-muted)", fontSize: 16,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "pointer", transition: "all 0.15s", flexShrink: 0,
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-mid)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+        onMouseLeave={(e) => { if (!open) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-muted)"; } }}
+        title="Thread options"
+      >
+        ⋯
+      </button>
+
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 98 }} />
+          <div style={{
+            position: "absolute", right: 0, top: "calc(100% + 5px)",
+            background: "var(--bg-panel)",
+            border: "1px solid rgba(77,126,255,0.2)",
+            borderRadius: 11, overflow: "hidden", zIndex: 99,
+            boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+            minWidth: 155,
+            animation: "slideUp 0.15s ease",
+          }}>
+            <button
+              onClick={() => { setOpen(false); onEdit(); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 9,
+                width: "100%", padding: "11px 14px",
+                background: "transparent", border: "none",
+                color: "var(--text-primary)", fontSize: 13,
+                fontFamily: "var(--font-body)", cursor: "pointer", textAlign: "left",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              ✏️ Edit Thread
+            </button>
+            <div style={{ height: 1, background: "var(--border)", margin: "0 10px" }} />
+            <button
+              onClick={() => { setOpen(false); onDelete(); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 9,
+                width: "100%", padding: "11px 14px",
+                background: "transparent", border: "none",
+                color: "#E85858", fontSize: 13,
+                fontFamily: "var(--font-body)", cursor: "pointer", textAlign: "left",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(232,88,88,0.07)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              🗑️ Delete Thread
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ── Homepage ─────────────────────────────────────── */
 export default function HomePage() {
   const router        = useRouter();
   const threads       = useStore((s) => s.threads) || [];
   const contributions = useStore((s) => s.contributions) || {};
   const createThread  = useStore((s) => s.createThread);
+  const editThread    = useStore((s) => s.editThread);
+  const deleteThread  = useStore((s) => s.deleteThread);
   const { onChainCreateThread } = useWallet();
 
   const [search,           setSearch]           = useState("");
   const [showCreate,       setShowCreate]        = useState(false);
   const [contributeThread, setContributeThread]  = useState(null);
+  const [editingThread,    setEditingThread]     = useState(null);
+  const [deletingThread,   setDeletingThread]    = useState(null);
 
   const filtered = threads.filter((t) =>
     t.title?.toLowerCase().includes(search.toLowerCase()) ||
@@ -166,6 +317,12 @@ export default function HomePage() {
     const thread = createThread(data);
     onChainCreateThread?.(thread.id, thread.title, thread.category).catch(() => {});
     router.push(`/threads/${thread.id}`);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deletingThread) return;
+    deleteThread(deletingThread.id);
+    setDeletingThread(null);
   };
 
   return (
@@ -213,7 +370,6 @@ export default function HomePage() {
             Humans and intelligent agents collaborate as equal participants to analyze information, reason through problems, and reach transparent consensus.
           </p>
 
-          {/* Search + create row */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <input
               value={search}
@@ -288,8 +444,8 @@ export default function HomePage() {
                     e.currentTarget.style.transform = "translateY(0)";
                   }}
                 >
-                  {/* Category + status */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                  {/* Category + status + ⋯ menu */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{
                       fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
                       textTransform: "uppercase", padding: "4px 12px", borderRadius: 6,
@@ -306,6 +462,14 @@ export default function HomePage() {
                     }}>
                       {isConsensus ? "✓ Consensus" : "● Active"}
                     </span>
+                    {/* ⋯ menu pushed to far right */}
+                    <div style={{ marginLeft: "auto" }}>
+                      <CardMenu
+                        thread={thread}
+                        onEdit={() => setEditingThread(thread)}
+                        onDelete={() => setDeletingThread(thread)}
+                      />
+                    </div>
                   </div>
 
                   {/* Title */}
@@ -353,7 +517,6 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* Action buttons */}
                     <div style={{ display: "flex", gap: 6 }}>
                       <button
                         onClick={() => setContributeThread(thread)}
@@ -391,12 +554,26 @@ export default function HomePage() {
         )}
       </div>
 
+      {/* Modals */}
       {showCreate && (
         <CreateThreadModal onClose={() => setShowCreate(false)} onCreate={handleCreate} />
       )}
-
       {contributeThread && (
         <ContributeModal thread={contributeThread} onClose={() => setContributeThread(null)} />
+      )}
+      {editingThread && (
+        <EditThreadModal
+          thread={editingThread}
+          onClose={() => setEditingThread(null)}
+          onSave={(updates) => { editThread(editingThread.id, updates); setEditingThread(null); }}
+        />
+      )}
+      {deletingThread && (
+        <DeleteConfirmModal
+          thread={deletingThread}
+          onClose={() => setDeletingThread(null)}
+          onConfirm={handleConfirmDelete}
+        />
       )}
     </>
   );

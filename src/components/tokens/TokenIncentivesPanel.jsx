@@ -1,8 +1,8 @@
 "use client";
 
-import { useWallet } from "@/hooks/useWallet";
 import useStore from "@/store/useStore";
-import { formatSynapse, CONTRACT_ADDRESS, ZERO_ADDRESS } from "@/lib/web3";
+import { useWallet } from "@/hooks/useWallet";
+import { CONTRACT_ADDRESS, ZERO_ADDRESS } from "@/lib/web3";
 
 const REWARDS = [
   { action: "Submit a contribution", reward: "+10 pts",  desc: "Post a structured argument with evidence",          color: "#3DD68C" },
@@ -21,13 +21,16 @@ function timeAgo(ts) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-export function TokenIncentivesPanel({ compact = false }) {
+export function TokenIncentivesPanel() {
   const { isConnected, pendingTx } = useWallet();
-  const synapsePoints = useStore((s) => s.synapsePoints);
-  const pointsHistory = useStore((s) => s.pointsHistory || []);
   const contractDeployed = CONTRACT_ADDRESS !== ZERO_ADDRESS;
 
-  // Pull all human contributions from the store across all threads
+  // Read points from the store (local, instant)
+  const synapsePoints  = useStore((s) => s.synapsePoints || 0);
+  const pointsHistory  = useStore((s) => s.pointsHistory || []);
+  const totalEarned    = pointsHistory.reduce((sum, p) => sum + (p.pts || 0), 0);
+
+  // All human contributions across all threads
   const allContributions = useStore((s) => {
     const threads = s.threads || [];
     const contribs = s.contributions || {};
@@ -35,9 +38,7 @@ export function TokenIncentivesPanel({ compact = false }) {
     for (const thread of threads) {
       const tc = contribs[thread.id] || [];
       for (const c of tc) {
-        if (!c.agentId) {
-          result.push({ ...c, threadTitle: thread.title });
-        }
+        if (!c.agentId) result.push({ ...c, threadTitle: thread.title });
       }
     }
     return result.sort((a, b) => b.timestamp - a.timestamp).slice(0, 12);
@@ -52,7 +53,7 @@ export function TokenIncentivesPanel({ compact = false }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
       {/* Synapse Points balance card */}
-      {!compact && isConnected && (
+      {isConnected && (
         <div style={{
           padding: "20px",
           background: "rgba(61,214,140,0.04)",
@@ -70,7 +71,7 @@ export function TokenIncentivesPanel({ compact = false }) {
               </div>
               {totalEarned > 0 && (
                 <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>
-                  {pointsHistory.reduce((s,p) => s+p.pts, 0)} pts earned lifetime
+                  {totalEarned} pts earned lifetime
                 </div>
               )}
             </div>
@@ -90,11 +91,7 @@ export function TokenIncentivesPanel({ compact = false }) {
       )}
 
       {/* Contribution activity feed */}
-      <div style={{
-        background: "var(--bg-raised)",
-        border: "1px solid var(--border)",
-        borderRadius: 14, overflow: "hidden",
-      }}>
+      <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
         <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
             Contribution Activity
@@ -115,7 +112,6 @@ export function TokenIncentivesPanel({ compact = false }) {
               borderBottom: i < allContributions.length - 1 ? "1px solid var(--border)" : "none",
               display: "flex", flexDirection: "column", gap: 6,
             }}>
-              {/* Thread + time */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 11, color: "var(--text-muted)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {c.threadTitle}
@@ -124,13 +120,9 @@ export function TokenIncentivesPanel({ compact = false }) {
                   {timeAgo(c.timestamp)}
                 </span>
               </div>
-
-              {/* Claim */}
               <div style={{ fontSize: 14, color: "var(--text-primary)", lineHeight: 1.4, fontStyle: "italic" }}>
                 "{c.claim}"
               </div>
-
-              {/* Footer row */}
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{
                   fontSize: 11, fontWeight: 600, padding: "2px 9px", borderRadius: 20,
@@ -153,11 +145,7 @@ export function TokenIncentivesPanel({ compact = false }) {
       </div>
 
       {/* How to earn */}
-      <div style={{
-        background: "var(--bg-raised)",
-        border: "1px solid var(--border)",
-        borderRadius: 14, overflow: "hidden",
-      }}>
+      <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
         <div style={{ padding: "14px 18px 10px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
             How to earn Synapse Points
@@ -182,8 +170,6 @@ export function TokenIncentivesPanel({ compact = false }) {
             </div>
           </div>
         ))}
-
-        {/* On-chain note */}
         <div style={{ padding: "14px 18px", background: "rgba(77,126,255,0.04)", borderTop: "1px solid var(--border)" }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#4D7EFF", marginBottom: 5 }}>◈ On-chain AI Scoring</div>
           <div style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>

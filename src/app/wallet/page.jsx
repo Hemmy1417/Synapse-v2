@@ -12,9 +12,11 @@ export default function WalletPage() {
     address, isConnected, walletName, isOnCorrectChain,
     connect, disconnect, addGenLayerChain,
   } = useWallet();
-  const synapsePoints  = useStore((s) => s.synapsePoints);
-  const totalEarned    = useStore((s) => (s.pointsHistory || []).reduce((sum, p) => sum + p.pts, 0));
-  const pointsHistory  = useStore((s) => s.pointsHistory || []);
+
+  // Points from the store (local, always accurate)
+  const synapsePoints = useStore((s) => s.synapsePoints || 0);
+  const pointsHistory = useStore((s) => s.pointsHistory || []);
+  const totalEarned   = pointsHistory.reduce((sum, p) => sum + (p.pts || 0), 0);
 
   const [genBalance, setGenBalance] = useState(null);
   const [loadingGen, setLoadingGen] = useState(false);
@@ -165,8 +167,6 @@ export default function WalletPage() {
               </p>
               <TokenIncentivesPanel />
             </div>
-
-
 
           </div>
         )}

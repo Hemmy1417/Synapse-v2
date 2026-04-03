@@ -116,7 +116,7 @@ export function ContributionForm({ onSubmit, disabled, autoOpen = false }) {
           onMouseEnter={(e) => e.currentTarget.style.opacity = "0.88"}
           onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
         >
-          Submit Contribution
+          Submit {isConnected ? `+ Stake ${form.stake} GEN` : "(no wallet)"}
         </button>
         <button onClick={() => { setOpen(false); setForm(DEFAULT); setErrs({}); }} style={{ padding: "12px 18px", background: "transparent", border: "1px solid var(--border)", borderRadius: 10, color: "var(--text-muted)", fontSize: 15, fontFamily: "var(--font-body)" }}>
           Cancel
