@@ -21,8 +21,10 @@ function timeAgo(ts) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-export function TokenIncentivesPanel() {
-  const { isConnected, synapseBalance, totalEarned, pendingTx } = useWallet();
+export function TokenIncentivesPanel({ compact = false }) {
+  const { isConnected, pendingTx } = useWallet();
+  const synapsePoints = useStore((s) => s.synapsePoints);
+  const pointsHistory = useStore((s) => s.pointsHistory || []);
   const contractDeployed = CONTRACT_ADDRESS !== ZERO_ADDRESS;
 
   // Pull all human contributions from the store across all threads
@@ -50,7 +52,7 @@ export function TokenIncentivesPanel() {
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
       {/* Synapse Points balance card */}
-      {isConnected && (
+      {!compact && isConnected && (
         <div style={{
           padding: "20px",
           background: "rgba(61,214,140,0.04)",
@@ -63,12 +65,12 @@ export function TokenIncentivesPanel() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontSize: 36, fontWeight: 700, color: "#3DD68C", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
-                {formatSynapse(synapseBalance)}
+                {synapsePoints}
                 <span style={{ fontSize: 16, fontWeight: 500, opacity: 0.6, marginLeft: 8 }}>PTS</span>
               </div>
               {totalEarned > 0 && (
                 <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>
-                  {formatSynapse(totalEarned)} pts earned lifetime
+                  {pointsHistory.reduce((s,p) => s+p.pts, 0)} pts earned lifetime
                 </div>
               )}
             </div>

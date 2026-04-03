@@ -4,8 +4,18 @@ import { SEED_THREADS, THREAD_STATUS } from "@/lib/constants";
 import { generateId, calcConsensusScore } from "@/lib/utils";
 import {
   fbCreateThread, fbUpdateThread, fbDeleteThread,
-  fbAddContribution, fbGetThreads, fbGetContributions,
+  fbAddContribution,
 } from "@/lib/firebase";
+
+// ── Point values ───────────────────────────────────────
+const PTS = {
+  CONTRIBUTE:        10,
+  CONTRIBUTION_ACCEPTED: 25,
+  VOTE_CORRECT:       5,
+  CONSENSUS_REACHED: 15,
+  CREATE_THREAD:     50,
+  THREAD_FINALIZED:  75,
+};
 
 // SSR-safe localStorage
 const storage = createJSONStorage(() => {
@@ -27,6 +37,20 @@ const useStore = create(
       _hasHydrated: false,
       setHasHydrated: () => set({ _hasHydrated: true }),
 
+      // ── Synapse Points (local, instant) ────────────────────
+      synapsePoints: 0,
+      pointsHistory: [], // { action, pts, timestamp, threadId }
+
+      awardPoints: (action, pts, threadId = null) => {
+        set((s) => ({
+          synapsePoints: s.synapsePoints + pts,
+          pointsHistory: [
+            { action, pts, timestamp: Date.now(), threadId },
+            ...s.pointsHistory,
+          ].slice(0, 100), // keep last 100 events
+        }));
+      },
+
       // ── Threads ─────────────────────────────────────────────
       threads:        SEED_THREADS,
       activeThreadId: SEED_THREADS[0].id,
@@ -42,6 +66,10 @@ const useStore = create(
           consensusScore: 0,
         };
         set((s) => ({ threads: [thread, ...s.threads] }));
+
+        // Award points instantly
+        get().awardPoints("Created a thread", PTS.CREATE_THREAD, thread.id);
+
         // Sync to Firebase
         if (firebaseEnabled()) {
           fbCreateThread(thread).catch((e) => console.warn("Firebase createThread:", e));
@@ -58,7 +86,6 @@ const useStore = create(
               : t
           ),
         }));
-        // Sync to Firebase
         if (firebaseEnabled()) {
           fbUpdateThread(threadId, { ...updates, editedAt: Date.now() })
             .catch((e) => console.warn("Firebase editThread:", e));
@@ -81,7 +108,6 @@ const useStore = create(
             Object.entries(s.summaries).filter(([k]) => k !== threadId)
           ),
         }));
-        // Sync to Firebase
         if (firebaseEnabled()) {
           fbDeleteThread(threadId).catch((e) => console.warn("Firebase deleteThread:", e));
         }
@@ -100,16 +126,28 @@ const useStore = create(
           const existing = s.contributions[threadId] || [];
           const updated  = [...existing, full];
           const score    = calcConsensusScore(updated);
+          const wasConsensus = s.threads.find((t) => t.id === threadId)?.status === THREAD_STATUS.CONSENSUS_REACHED;
+          const nowConsensus = score >= 70;
+
+          // Award consensus points to all contributors if newly reached
+          if (!wasConsensus && nowConsensus) {
+            setTimeout(() => get().awardPoints("Consensus reached", PTS.CONSENSUS_REACHED, threadId), 0);
+          }
 
           return {
             contributions: { ...s.contributions, [threadId]: updated },
             threads: s.threads.map((t) =>
               t.id === threadId
-                ? { ...t, consensusScore: score, status: score >= 70 ? THREAD_STATUS.CONSENSUS_REACHED : THREAD_STATUS.IN_DISCUSSION }
+                ? { ...t, consensusScore: score, status: nowConsensus ? THREAD_STATUS.CONSENSUS_REACHED : THREAD_STATUS.IN_DISCUSSION }
                 : t
             ),
           };
         });
+
+        // Award contribution points instantly
+        if (!contrib.agentId) {
+          get().awardPoints("Submitted a contribution", PTS.CONTRIBUTE, threadId);
+        }
 
         // Sync to Firebase
         if (firebaseEnabled()) {
@@ -144,13 +182,15 @@ const useStore = create(
       setFilter: (f) => set({ filter: f }),
     }),
     {
-      name: "synapse-store-v2",
+      name: "synapse-store-v3",
       storage,
       partialize: (s) => ({
         threads:       s.threads,
         contributions: s.contributions,
         summaries:     s.summaries,
         filter:        s.filter,
+        synapsePoints: s.synapsePoints,
+        pointsHistory: s.pointsHistory,
       }),
       merge: (persisted, current) => {
         const persistedIds = new Set((persisted.threads || []).map((t) => t.id));
@@ -158,9 +198,11 @@ const useStore = create(
         return {
           ...current,
           ...persisted,
-          threads: [...missingSeeds, ...(persisted.threads || [])],
+          threads:       [...missingSeeds, ...(persisted.threads || [])],
           contributions: persisted.contributions || {},
           summaries:     persisted.summaries     || {},
+          synapsePoints: persisted.synapsePoints || 0,
+          pointsHistory: persisted.pointsHistory || [],
         };
       },
       onRehydrateStorage: () => (state) => {
@@ -171,6 +213,7 @@ const useStore = create(
 );
 
 export default useStore;
+export { PTS };
 
 // Reactive sorted-threads selector
 export function useSortedThreads() {

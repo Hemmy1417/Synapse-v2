@@ -18,10 +18,10 @@ function ContributeModal({ thread, onClose }) {
   const [sentiment,  setSentiment]  = useState("neutral");
   const [confidence, setConfidence] = useState(70);
   const [submitted,  setSubmitted]  = useState(false);
-  const [errs,       setErrs]       = useState({});
+  const [errs,       setErrs]       = useState<Record<string, boolean>>({});
 
   const submit = () => {
-    const e = {};
+    const e: Record<string, boolean> = {};
     if (!claim.trim())     e.claim     = true;
     if (!reasoning.trim()) e.reasoning = true;
     if (Object.keys(e).length) { setErrs(e); return; }

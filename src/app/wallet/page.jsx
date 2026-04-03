@@ -4,14 +4,17 @@ import { useEffect, useState } from "react";
 import { Navbar } from "@/components/nav/Navbar";
 import { TokenIncentivesPanel } from "@/components/tokens/TokenIncentivesPanel";
 import { useWallet } from "@/hooks/useWallet";
-import { formatSynapse, formatGEN, isWalletAvailable } from "@/lib/web3";
+import useStore from "@/store/useStore";
+import { formatGEN, isWalletAvailable } from "@/lib/web3";
 
 export default function WalletPage() {
   const {
     address, isConnected, walletName, isOnCorrectChain,
-    synapseBalance, totalEarned,
     connect, disconnect, addGenLayerChain,
   } = useWallet();
+  const synapsePoints  = useStore((s) => s.synapsePoints);
+  const totalEarned    = useStore((s) => (s.pointsHistory || []).reduce((sum, p) => sum + p.pts, 0));
+  const pointsHistory  = useStore((s) => s.pointsHistory || []);
 
   const [genBalance, setGenBalance] = useState(null);
   const [loadingGen, setLoadingGen] = useState(false);
@@ -118,7 +121,7 @@ export default function WalletPage() {
               <div className="info-card" style={{ background: "rgba(61,214,140,0.04)", borderColor: "rgba(61,214,140,0.18)" }}>
                 <div className="info-card-label" style={{ color: "#3DD68C" }}>Synapse Points</div>
                 <div className="big-number" style={{ color: "#3DD68C", marginBottom: 6 }}>
-                  {formatSynapse(synapseBalance)}
+                  {synapsePoints}
                   <span style={{ fontSize: 18, fontWeight: 500, opacity: 0.6, marginLeft: 10 }}>PTS</span>
                 </div>
                 <div className="info-card-sub" style={{ marginBottom: 16 }}>
@@ -127,7 +130,7 @@ export default function WalletPage() {
 
                 {totalEarned > 0 && (
                   <div style={{ marginBottom: 14, padding: "8px 12px", background: "rgba(61,214,140,0.07)", border: "1px solid rgba(61,214,140,0.15)", borderRadius: 8, fontSize: 13, color: "#3DD68C" }}>
-                    {formatSynapse(totalEarned)} pts earned lifetime
+                    {totalEarned} pts earned lifetime
                   </div>
                 )}
 

@@ -4,7 +4,6 @@ import { AGENTS, SENTIMENTS } from "@/lib/constants";
 import { consensusColor, consensusLabel, avgConfidence, sentimentCounts } from "@/lib/utils";
 import useStore from "@/store/useStore";
 import { TokenIncentivesPanel } from "@/components/tokens/TokenIncentivesPanel";
-import { EscrowPanel } from "@/components/wallet/EscrowPanel";
 
 function RadialScore({ score }) {
   const color  = score >= 60 ? "#3DD68C" : score >= 35 ? "#C8943A" : "#E85858";
@@ -16,16 +15,13 @@ function RadialScore({ score }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 0" }}>
       <svg width="92" height="92">
-        {/* Track */}
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="5" />
-        {/* Progress */}
         <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="5"
           strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
           transform={`rotate(-90 ${cx} ${cy})`}
           style={{ transition: "stroke-dasharray 1s cubic-bezier(.4,0,.2,1), stroke 0.5s" }}
           filter={`drop-shadow(0 0 6px ${color}55)`}
         />
-        {/* Score text */}
         <text x={cx} y={cy - 6} textAnchor="middle" dominantBaseline="middle"
           fill={color} fontSize="20" fontFamily="var(--font-mono)" fontWeight="500">{score}</text>
         <text x={cx} y={cy + 13} textAnchor="middle" dominantBaseline="middle"
@@ -54,14 +50,24 @@ const Card = ({ children, style = {} }) => (
 );
 
 export function ConsensusPanel({ thread, onRefreshSummary }) {
-  const contributions = useStore((s) => s.contributions[thread.id] || []);
-  const summary       = useStore((s) => s.summaries[thread.id]);
-  const agentLoading  = useStore((s) => s.agentLoading);
-  const isAnyLoading  = Object.values(agentLoading).some(Boolean);
+  const contributions  = useStore((s) => s.contributions[thread.id] || []);
+  const summary        = useStore((s) => s.summaries[thread.id]);
+  const agentLoading   = useStore((s) => s.agentLoading);
+  const synapsePoints  = useStore((s) => s.synapsePoints);
+  const pointsHistory  = useStore((s) => s.pointsHistory || []);
+  const isAnyLoading   = Object.values(agentLoading).some(Boolean);
 
   const counts  = sentimentCounts(contributions);
   const avgConf = avgConfidence(contributions);
   const score   = thread.consensusScore;
+
+  // Points earned on this thread
+  const threadPoints  = pointsHistory
+    .filter((p) => p.threadId === thread.id)
+    .reduce((sum, p) => sum + p.pts, 0);
+  const recentEvents  = pointsHistory
+    .filter((p) => p.threadId === thread.id)
+    .slice(0, 4);
 
   return (
     <div style={{
@@ -78,7 +84,6 @@ export function ConsensusPanel({ thread, onRefreshSummary }) {
         <SectionTitle>Consensus Engine</SectionTitle>
         <Card>
           <RadialScore score={score} />
-          {/* Sentiment breakdown */}
           <div style={{ display: "flex", gap: 5, marginTop: 10 }}>
             {Object.entries(SENTIMENTS).map(([key, s]) => (
               <div key={key} style={{
@@ -93,6 +98,39 @@ export function ConsensusPanel({ thread, onRefreshSummary }) {
               </div>
             ))}
           </div>
+        </Card>
+      </div>
+
+      {/* ── Synapse Points ── */}
+      <div>
+        <SectionTitle>Synapse Points</SectionTitle>
+        <Card style={{ background: "rgba(61,214,140,0.04)", borderColor: "rgba(61,214,140,0.18)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: "#3DD68C", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
+                {synapsePoints}
+                <span style={{ fontSize: 12, opacity: 0.6, marginLeft: 6 }}>PTS</span>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                {threadPoints > 0 ? `+${threadPoints} pts from this thread` : "Earn points by contributing"}
+              </div>
+            </div>
+          </div>
+          {recentEvents.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 5, borderTop: "1px solid rgba(61,214,140,0.12)", paddingTop: 8 }}>
+              {recentEvents.map((e, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{e.action}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#3DD68C", fontFamily: "var(--font-mono)" }}>+{e.pts}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {recentEvents.length === 0 && (
+            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+              Submit a contribution → +10 pts instantly
+            </div>
+          )}
         </Card>
       </div>
 
@@ -137,9 +175,7 @@ export function ConsensusPanel({ thread, onRefreshSummary }) {
               }}>
                 <span style={{ color: agent.color, fontSize: 14 }}>{agent.symbol}</span>
                 <span style={{ flex: 1, fontSize: 12, color: agent.color, fontWeight: 500 }}>{agent.name}</span>
-                <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                  {ac.length}
-                </span>
+                <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{ac.length}</span>
                 {conf > 0 && <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{conf}%</span>}
                 {busy && <div style={{ width: 5, height: 5, borderRadius: "50%", background: agent.color, animation: "pulse 1.1s infinite" }} />}
               </div>
@@ -158,6 +194,7 @@ export function ConsensusPanel({ thread, onRefreshSummary }) {
               padding: "3px 10px", fontSize: 10, borderRadius: 6, fontFamily: "var(--font-body)",
               background: "transparent", border: "1px solid var(--border)",
               color: "var(--text-muted)", opacity: contributions.length === 0 || isAnyLoading ? 0.4 : 1,
+              cursor: contributions.length === 0 || isAnyLoading ? "not-allowed" : "pointer",
               transition: "all 0.15s",
             }}>
             ↻ Refresh
@@ -194,17 +231,12 @@ export function ConsensusPanel({ thread, onRefreshSummary }) {
         )}
       </div>
 
-      {/* ── GEN Escrow ── */}
-      <div>
-        <SectionTitle>GEN Escrow</SectionTitle>
-        <EscrowPanel />
-      </div>
-
       {/* ── Token Incentives ── */}
       <div>
-        <SectionTitle>Token Incentives</SectionTitle>
-        <TokenIncentivesPanel />
+        <SectionTitle>How to Earn Points</SectionTitle>
+        <TokenIncentivesPanel compact />
       </div>
+
     </div>
   );
 }
